@@ -130,6 +130,17 @@ alpha.addEventListener("input", function(evt) {
 	}
 },false);
 
+var waveActive = false;
+var dropStartTime = 0;
+document.addEventListener("keydown",function(evt){
+	if(evt.key == "d" || evt.key == "D"){
+		waveActive = true;
+		dropStartTime = performance.now() * 0.001;
+		console.log("dropStartTime: ", dropStartTime);
+	}
+});
+
+
 function readScene()//This is the function that is called after user selects multiple files of images and scenes
 {
 	if (input.files.length > 0) {
@@ -353,8 +364,25 @@ function renderBillboard(now){
 	
 	// Tell the shader to use texture unit 1 for u_texture
     gl.uniform1i(billboardProgram.textureUniformLocation, 1);
-
 	//TODO: You need to send various data to the shader code such as time, skybox texture, etc.
+	gl.uniform1i(billboardProgram.skyboxUniformLocation, 0);
+	
+	var currentTime = now * 0.001;
+	var elapsed = 0.0;
+	if (waveActive){
+		elapsed = currentTime - dropStartTime;
+	}
+	gl.uniform1f(billboardProgram.timeUniformLocation, elapsed);
+	gl.uniform1f(billboardProgram.waterHeightUniformLocation, waterHeight);
+	gl.uniform1f(billboardProgram.alphaUniformLocation,alpha.value);
+	gl.uniform3fv(
+		billboardProgram.cameraLocationUniformLocation,
+		new Float32Array([
+			currentScene.camera.position.x,
+			currentScene.camera.position.y,
+			currentScene.camera.position.z
+			])
+	);
 	
 	gl.drawArrays(gl.TRIANGLES, 0, 6);
 }
@@ -485,11 +513,11 @@ function makeBillboardBuffers(){
 
 	
 	// === Cubemap Texture ===
-	var dummyImage = new ImageData(posY.width, posY.height);
+	var dummyImage = new ImageData(posX.width, posX.height);
 	var cubemapTextureBuffer = gl.createTexture();
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemapTextureBuffer);
-    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, dummyImage);
+    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, posX);
     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
 
 	gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemapTextureBuffer);
@@ -497,7 +525,7 @@ function makeBillboardBuffers(){
     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
 
 	gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemapTextureBuffer);
-    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, posY);
+    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, dummyImage);
     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
 
 	gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemapTextureBuffer);
@@ -525,13 +553,19 @@ function makeBillboardBuffers(){
 }
 
 class BillboardProgram{
-	constructor(program,positionLocationAttrib,normalLocationAttrib,textureLocationAttrib,textureUniformLocation,worldViewProjectionUniformLocation){
+	constructor(program,positionLocationAttrib,normalLocationAttrib,textureLocationAttrib,textureUniformLocation,skyboxUniformLocation,worldViewProjectionUniformLocation,
+				cameraLocationUniformLocation,timeUniformLocation,waterHeightUniformLocation,alphaUniformLocation){
 		this.program=program;
 		this.positionLocationAttrib=positionLocationAttrib;
 		this.normalLocationAttrib=normalLocationAttrib;
 		this.textureLocationAttrib=textureLocationAttrib;
 		this.textureUniformLocation=textureUniformLocation;
+		this.skyboxUniformLocation=skyboxUniformLocation;
 		this.worldViewProjectionUniformLocation=worldViewProjectionUniformLocation;
+		this.cameraLocationUniformLocation=cameraLocationUniformLocation;
+		this.timeUniformLocation=timeUniformLocation;
+		this.waterHeightUniformLocation=waterHeightUniformLocation;
+		this.alphaUniformLocation=alphaUniformLocation;
 	}
 }
 
@@ -547,20 +581,59 @@ class BackgroundProgram{
 
 function programBillboard(){
 	//Todo: Change the shader programs to support diffuse and specular (graduates) shading. For gouraud shading you need to calculate new normals when processing the OBJ file.
-	var vShaderObj = "attribute vec4 a_position;\n"+
+	var vShaderObj = 
+				"attribute vec4 a_position;\n"+
 				"attribute vec3 a_normal;\n"+
 				"attribute vec2 a_texcoord;\n"+
 				"uniform mat4 u_worldViewProjection;\n"+
 				"varying vec2 v_texcoord;\n"+
+				"varying vec3 v_worldPos;\n"+
 				"void main() {\n"+
 					"v_texcoord=a_texcoord;\n"+
+					"v_worldPos = a_position.xyz;\n"+
 					"gl_Position = u_worldViewProjection * a_position;\n"+
 				"}";
-	var fShaderObj = 	"precision mediump float;\n"+
+	//h(rho,theta)=Asin((vt-rho)2pi)
+	//h(x,y,z)=Asin((vt-sqrt(x^2+y^2)2pi)
+	//d/dx*h(x)=h'(x)=-2Apicos(2pi(vt-rho)) -- plane y=0
+	//partial x h(x,y) = -Ax (cos(t*v - sqrt(x^2+y^2)))/sqrt(x^2+y^2)...same for partial y 
+	var fShaderObj = 	
+					"precision mediump float;\n"+
 					"uniform sampler2D u_texture;\n"+
+					"uniform samplerCube u_skybox;\n"+
+					"uniform vec3 u_cameraLocation;\n"+
+					"uniform float u_time;\n"+
+					"uniform float u_waterHeight;\n"+
+					"uniform float u_alpha;\n"+
 					"varying vec2 v_texcoord;\n"+
+					"varying vec3 v_worldPos;\n"+
 					"void main() {\n"+
-						"gl_FragColor = texture2D(u_texture, v_texcoord);\n"+
+						"float PI = 3.14159265;\n"+
+						"float waveSpeed = 0.3;\n"+
+						"vec2 centered = v_texcoord - vec2(0.5,0.5);\n"+
+						"float rho = length(centered);\n"+
+						"vec2 dir = vec2(0.0,0.0);\n"+
+						"if (rho > 0.0001){\n"+
+							"dir = centered/rho;\n"+
+						"}\n"+
+						"float phase = 2.0 * PI * (u_time * waveSpeed - rho);\n"+
+						"float dhdr = 0.0;\n"+
+						"if (rho <= u_time * waveSpeed){\n"+
+							"dhdr = -u_waterHeight * 2.0 * PI * cos(phase);\n"+
+						"}\n"+
+						"float dhdx = dhdr * dir.x;\n"+
+						"float dhdy = dhdr * dir.y;\n"+
+						"vec3 normal = normalize(vec3(-dhdx,1.0,-dhdy));\n"+
+						"vec3 incident = normalize(vec3(0.0,-1.0,0.0));\n"+
+						"float eta = 1.0/2.0;\n"+
+						"vec3 refractDir = refract(incident,normal,eta);\n"+
+						"vec2 refractOffset = refractDir.xz * u_waterHeight * 0.15;\n"+
+						"vec2 refractedUV = clamp(v_texcoord + refractOffset, 0.0, 1.0);\n"+
+						"vec4 refractedColor = texture2D(u_texture,refractedUV);\n"+
+						"vec3 viewDir = normalize(v_worldPos - u_cameraLocation);\n"+
+						"vec3 reflectDir = reflect(viewDir, normal);\n"+
+						"vec4 reflectedColor = textureCube(u_skybox, reflectDir);\n"+
+						"gl_FragColor = mix(refractedColor,reflectedColor,u_alpha);\n"+
 					"}";
 	programBill = webglUtils.createProgramFromSources(gl, [vShaderObj,fShaderObj])
 	
@@ -575,10 +648,37 @@ function programBillboard(){
 	//The uniform variables from the shader program can be obtained as below.
 	// lookup uniforms
     textureUniformLocation = gl.getUniformLocation(programBill, "u_texture");
+	skyboxUniformLocation = gl.getUniformLocation(programBill, "u_skybox");
 	worldViewProjectionUniformLocation = gl.getUniformLocation(programBill, "u_worldViewProjection");
+	cameraLocationUniformLocation = gl.getUniformLocation(programBill,"u_cameraLocation");
+	timeUniformLocation = gl.getUniformLocation(programBill,"u_time");
+	waterHeightUniformLocation = gl.getUniformLocation(programBill,"u_waterHeight");
+	alphaUniformLocation = gl.getUniformLocation(programBill,"u_alpha");
 	
+	/*program,
+	positionLocationAttrib,
+	normalLocationAttrib,
+	textureLocationAttrib,
+	textureUniformLocation,
+	skyboxUniformLocation,
+	worldViewProjectionUniformLocation,
+	cameraLocationUniformLocation,
+	timeUniformLocation,
+	waterHeightUniformLocation,
+	alphaUniformLocation
+	*/
 	//Todo: You can store the variable addresses into a class similar to what is shown below so that in the rendering loop you don't get the variables each time.
-	billboardProgram=new BillboardProgram(programBill,positionLocationAttrib,normalLocationAttrib,textureLocationAttrib,textureUniformLocation,worldViewProjectionUniformLocation);
+	billboardProgram=new BillboardProgram(programBill,
+										  positionLocationAttrib,
+										  normalLocationAttrib,
+										  textureLocationAttrib,
+										  textureUniformLocation,
+										  skyboxUniformLocation,
+										  worldViewProjectionUniformLocation,
+										  cameraLocationUniformLocation,
+										  timeUniformLocation,
+										  waterHeightUniformLocation,
+										  alphaUniformLocation);
 }
 
 function programBackground(){
