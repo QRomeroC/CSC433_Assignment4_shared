@@ -2,11 +2,15 @@ Template code for A04
 ------------
 
 CSC433
-Author: Your name [youremail@arizona.edu]
-Date: April ?, 2026
+Author: 
+	Arron Posey [acposey@arizona.edu]
+	Cesar D. Quihuis-Romero [qromeroc@arizona.edu]
+Date: April 6, 2026
 
 **PLEASE UPDATE THIS README**
-
+!!!!!***performance issues****!!!!!
+	-rendering is very slow and takes a significant amount of time to 
+	 draw once files are selected.
 
 Included files (**PLEASE ADD/UPDATE THIS LIST**):
 * materials/ -- A folder with a scene to test and two textures and one OBJ file.
@@ -21,3 +25,15 @@ Included files (**PLEASE ADD/UPDATE THIS LIST**):
 PLEASE PROVIDE ANY ATTRIBUTION HERE**
 * png.js is created by "Browserify"
 * webgl-utils.js and m4.js are from https://webglfundamentals.org/
+
+references were for openGl but used to understand methods and methods have been
+present since 1.10 release
+
+reflect
+https://registry.khronos.org/OpenGL-Refpages/gl4/html/reflect.xhtml
+
+refract
+https://registry.khronos.org/OpenGL-Refpages/gl4/html/refract.xhtml
+
+mix
+https://registry.khronos.org/OpenGL-Refpages/gl4/html/mix.xhtml
