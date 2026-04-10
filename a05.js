@@ -282,6 +282,8 @@ function drawScene(now) {
 			gl.enable(gl.BLEND)
 			gl.colorMask(true, true, true, true);
 			gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+			gl.enable(gl.DEPTH_TEST);
+			gl.enable(gl.LEQUAL);
 		}else{
 			renderingFcn(now);
 		}
