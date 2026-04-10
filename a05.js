@@ -521,23 +521,23 @@ function makeBillboardBuffers(){
     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
 
 	gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemapTextureBuffer);
-    gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, dummyImage);
+    gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, negX);
     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
 
 	gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemapTextureBuffer);
-    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, dummyImage);
+    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, posY);
     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
 
 	gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemapTextureBuffer);
-    gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, dummyImage);
+    gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, negY);
     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
 
 	gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemapTextureBuffer);
-    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, dummyImage);
+    gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, posZ);
     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
 
 	gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemapTextureBuffer);
-    gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, dummyImage);
+    gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, negZ);
     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
 
 
